@@ -36,6 +36,7 @@ export interface LlmEdgeConfig {
 
 export function llmEdgeConfigFromEnv(env: {
   ANTHROPIC_API_KEY?: string;
+  OPENAI_API_KEY?: string;
   LLM_CACHE_TTL?: string;
 }): LlmEdgeConfig {
   const ttl = env.LLM_CACHE_TTL ?? '1h';
@@ -44,6 +45,12 @@ export function llmEdgeConfigFromEnv(env: {
   }
   return {
     ...(env.ANTHROPIC_API_KEY ? { anthropicApiKey: env.ANTHROPIC_API_KEY } : {}),
+    // O campo openaiApiKey e o ramo `provider === 'openai'` de
+    // resolveOrgLlmConfig já existiam; faltava a única linha que os liga ao env.
+    // Sem ela a chave coletada pelo install.sh não chegava ao fallback de
+    // plataforma, e a org que atende por OpenAI sem BYOK batia em
+    // LlmNotConfiguredError — com a chave configurada na máquina.
+    ...(env.OPENAI_API_KEY ? { openaiApiKey: env.OPENAI_API_KEY } : {}),
     cacheTtl: ttl,
   };
 }

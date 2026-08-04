@@ -5,7 +5,12 @@ vi.mock("@/lib/crypto/aes_gcm", () => ({
   decryptKey: () => "chave-byok-da-org",
 }));
 
-import { resolveOrgLlmConfig, LlmNotConfiguredError, type LlmEdgeConfig } from "./credentials";
+import {
+  resolveOrgLlmConfig,
+  llmEdgeConfigFromEnv,
+  LlmNotConfiguredError,
+  type LlmEdgeConfig,
+} from "./credentials";
 
 /** Pool falso: 1ª query devolve settings->'llm', 2ª devolve credenciais BYOK. */
 function poolFake(settingsLlm: unknown, credenciais: unknown[]) {
@@ -61,6 +66,69 @@ describe("resolveOrgLlmConfig — chave de plataforma por provider", () => {
   it("sem BYOK e sem chave de plataforma, falha em vez de inventar", async () => {
     await expect(
       resolveOrgLlmConfig(poolFake({ provider: "openai" }, SEM_BYOK), {}, "org-1"),
+    ).rejects.toBeInstanceOf(LlmNotConfiguredError);
+  });
+});
+
+/**
+ * O que este bloco protege: **a chave de plataforma da OpenAI chega ao motor.**
+ *
+ * `LlmEdgeConfig.openaiApiKey` e o ramo `provider === 'openai'` de
+ * resolveOrgLlmConfig já existiam e já eram testados acima — mas montando o cfg
+ * na mão. Na produção o cfg vem de `llmEdgeConfigFromEnv`, que lia SÓ
+ * ANTHROPIC_API_KEY. Resultado: numa instalação que atende por OpenAI sem BYOK
+ * cadastrado na tela, o fallback existia no código e era inalcançável — o turno
+ * morria com LlmNotConfiguredError, com a chave configurada na máquina.
+ */
+describe("llmEdgeConfigFromEnv — chaves de plataforma", () => {
+  it("leva OPENAI_API_KEY para openaiApiKey", () => {
+    const cfg = llmEdgeConfigFromEnv({ OPENAI_API_KEY: "sk-proj-xxx" });
+    expect(cfg.openaiApiKey).toBe("sk-proj-xxx");
+  });
+
+  it("leva ANTHROPIC_API_KEY para anthropicApiKey (comportamento preservado)", () => {
+    const cfg = llmEdgeConfigFromEnv({ ANTHROPIC_API_KEY: "sk-ant-xxx" });
+    expect(cfg.anthropicApiKey).toBe("sk-ant-xxx");
+    expect(cfg.openaiApiKey).toBeUndefined();
+  });
+
+  it("as duas chaves convivem", () => {
+    const cfg = llmEdgeConfigFromEnv({
+      ANTHROPIC_API_KEY: "sk-ant-xxx",
+      OPENAI_API_KEY: "sk-proj-xxx",
+    });
+    expect(cfg.anthropicApiKey).toBe("sk-ant-xxx");
+    expect(cfg.openaiApiKey).toBe("sk-proj-xxx");
+  });
+
+  it("sem chave nenhuma não inventa campo — o erro instrutivo é o certo", () => {
+    const cfg = llmEdgeConfigFromEnv({});
+    expect(cfg.anthropicApiKey).toBeUndefined();
+    expect(cfg.openaiApiKey).toBeUndefined();
+    expect(cfg.cacheTtl).toBe("1h");
+  });
+});
+
+/**
+ * A ponta a ponta do caso do usuário: env só com OpenAI + org sem BYOK +
+ * agente publicado com provider 'openai' (o override que a tela grava em
+ * ai_agent_versions). Antes desta correção isto era LlmNotConfiguredError.
+ */
+describe("org só-OpenAI sem BYOK usa a chave do instalador", () => {
+  it("resolve com a chave de plataforma da OpenAI", async () => {
+    const cfg = llmEdgeConfigFromEnv({ OPENAI_API_KEY: "sk-proj-instalador" });
+    const resolved = await resolveOrgLlmConfig(
+      poolFake({ provider: "openai" }, SEM_BYOK),
+      cfg,
+      "org-1",
+    );
+    expect(resolved.provider).toBe("openai");
+    expect(resolved.apiKey).toBe("sk-proj-instalador");
+  });
+
+  it("sem chave alguma segue lançando LlmNotConfiguredError", async () => {
+    await expect(
+      resolveOrgLlmConfig(poolFake({ provider: "openai" }, SEM_BYOK), llmEdgeConfigFromEnv({}), "org-1"),
     ).rejects.toBeInstanceOf(LlmNotConfiguredError);
   });
 });

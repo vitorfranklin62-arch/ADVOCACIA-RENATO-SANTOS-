@@ -17,13 +17,12 @@ import { generateObject } from "ai";
 import { z } from "zod";
 
 import { computeCost } from "@/lib/ai/cost";
-import { DEFAULT_CLASSIFIER_MODEL, isAiGatewayConfigured, resolveLanguageModel } from "@/lib/ai/gateway";
+import { defaultClassifierModel, isAiGatewayConfigured, resolveLanguageModel } from "@/lib/ai/gateway";
 import { logInvocation } from "@/lib/ai/log-invocation";
 import { SENTIMENT_SYSTEM_PROMPT } from "@/lib/ai/prompts/sentiment";
 import type { EventRow } from "@/lib/event-log/dispatcher";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const SENTIMENT_MODEL = DEFAULT_CLASSIFIER_MODEL; // "anthropic/claude-haiku-4-5"
 const DEFAULT_SENTIMENT_THRESHOLD = 0.3;
 const CLASSIFY_TIMEOUT_MS = 5_000;
 
@@ -65,12 +64,18 @@ export async function processSentiment(event: EventRow): Promise<SentimentResult
       return { skipped: true, reason: "ai_gateway_key_missing" };
     }
 
-    // Passar SENTIMENT_MODEL como string cai no gateway da Vercel mesmo sem
-    // chave (plano anônimo) e devolve "Unauthenticated ... Configure
-    // AI_GATEWAY_API_KEY" — o que quebrava este worker em toda instalação que
-    // só tem ANTHROPIC_API_KEY, ou seja, o padrão do install.sh. O resolver
-    // devolve o provider certo para a chave que existir.
-    const sentimentModel = resolveLanguageModel(SENTIMENT_MODEL);
+    // Passar o id como string cai no gateway da Vercel mesmo sem chave (plano
+    // anônimo) e devolve "Unauthenticated ... Configure AI_GATEWAY_API_KEY" —
+    // o que quebrava este worker em toda instalação que só tem
+    // ANTHROPIC_API_KEY, ou seja, o padrão do install.sh. O resolver devolve o
+    // provider certo para a chave que existir.
+    //
+    // O id vem de `defaultClassifierModel()` e não de uma constante de módulo:
+    // numa instalação só-OpenAI o id `anthropic/*` fixo não tem como rodar, e o
+    // resolver — que por contrato não inventa provider — devolvia null aqui,
+    // deixando o sentimento desligado para sempre.
+    const sentimentModelId = defaultClassifierModel();
+    const sentimentModel = resolveLanguageModel(sentimentModelId);
     if (!sentimentModel) {
       return { skipped: true, reason: "ai_gateway_key_missing" };
     }
@@ -197,12 +202,12 @@ export async function processSentiment(event: EventRow): Promise<SentimentResult
       conversation_id: conversationId ?? message.conversation_id ?? null,
       message_id: messageId,
       invocation_kind: "sentiment_classify",
-      model: SENTIMENT_MODEL,
+      model: sentimentModelId,
       prompt_tokens: promptTokens,
       completion_tokens: completionTokens,
       latency_ms: latencyMs,
       cost_cents: await computeCost({
-        model: SENTIMENT_MODEL,
+        model: sentimentModelId,
         promptTokens,
         completionTokens,
       }),

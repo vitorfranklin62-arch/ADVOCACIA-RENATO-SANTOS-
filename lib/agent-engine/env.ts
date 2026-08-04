@@ -18,6 +18,12 @@ const envSchema = z.object({
   // ai_provider_credentials). Opcional no boot: sem ela e sem BYOK, o turno
   // falha com erro instrutivo — nunca silêncio.
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  // Idem para OpenAI. `LlmEdgeConfig.openaiApiKey` e o ramo `provider === 'openai'`
+  // de resolveOrgLlmConfig já existiam, mas nada preenchia o campo a partir do
+  // env — então numa instalação que atende por OpenAI sem BYOK cadastrado o
+  // fallback de plataforma era inalcançável e o turno morria em
+  // LlmNotConfiguredError.
+  OPENAI_API_KEY: z.string().min(1).optional(),
   // Modelo default do agente quando a org não define o dela (knob, nunca constante).
   AGENT_DEFAULT_MODEL: z.string().min(1).default('claude-sonnet-4-5'),
   // Teto de conexões por pool do pg. Sem valor = pg decide (default 10).

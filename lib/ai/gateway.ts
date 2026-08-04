@@ -32,11 +32,56 @@ export const DEFAULT_BOT_MODEL: ModelId = "anthropic/claude-sonnet-4-6";
 export const DEFAULT_CLASSIFIER_MODEL: ModelId = "anthropic/claude-haiku-4-5";
 export const DEFAULT_EMBEDDING_MODEL: ModelId = "openai/text-embedding-3-small";
 
-export function isAiGatewayConfigured(): boolean {
+/**
+ * Equivalentes OpenAI dos papéis acima, para a instalação que só tem
+ * `OPENAI_API_KEY`. Mesmos ids do catálogo semeado em `ai_models` — o seletor
+ * de modelo da tela e o padrão dos workers falam do mesmo vocabulário.
+ */
+export const OPENAI_BOT_MODEL: ModelId = "openai/gpt-5";
+export const OPENAI_CLASSIFIER_MODEL: ModelId = "openai/gpt-5-mini";
+
+/**
+ * Ids `anthropic/*` são executáveis? Verdade quando existe gateway (roteia
+ * qualquer provider), OpenRouter (idem) ou a chave direta da Anthropic.
+ */
+function anthropicIdsRunnable(): boolean {
   return (
     Boolean(env.AI_GATEWAY_API_KEY) ||
     Boolean(env.OPENROUTER_API_KEY) ||
     Boolean(env.ANTHROPIC_API_KEY)
+  );
+}
+
+/**
+ * Padrão de CHAT do papel, escolhido pelo provider que a instalação realmente
+ * tem. Existe porque `DEFAULT_*_MODEL` são ids `anthropic/*` fixos: numa
+ * instalação só-OpenAI o `resolveLanguageModel` devolvia null para eles — por
+ * contrato, já que ele não inventa provider — e os workers pulavam para sempre.
+ * A escolha do id acontece ANTES de resolver, que é o único lugar onde trocar
+ * de modelo é uma decisão explícita e não um fallback silencioso.
+ */
+export function defaultBotModel(): ModelId {
+  return anthropicIdsRunnable() ? DEFAULT_BOT_MODEL : OPENAI_BOT_MODEL;
+}
+
+export function defaultClassifierModel(): ModelId {
+  return anthropicIdsRunnable() ? DEFAULT_CLASSIFIER_MODEL : OPENAI_CLASSIFIER_MODEL;
+}
+
+/**
+ * Tem como executar um modelo de CHAT?
+ *
+ * `OPENAI_API_KEY` conta: o `install.sh` aceita instalar só com ela, e o
+ * registry do engine trata `openai` como provider de primeira classe. Sem isto
+ * a checagem dizia "sem IA" numa instalação que tinha IA, e os workers de
+ * resposta e de sentimento pulavam todo evento com `ai_gateway_key_missing`.
+ */
+export function isAiGatewayConfigured(): boolean {
+  return (
+    Boolean(env.AI_GATEWAY_API_KEY) ||
+    Boolean(env.OPENROUTER_API_KEY) ||
+    Boolean(env.ANTHROPIC_API_KEY) ||
+    Boolean(env.OPENAI_API_KEY)
   );
 }
 

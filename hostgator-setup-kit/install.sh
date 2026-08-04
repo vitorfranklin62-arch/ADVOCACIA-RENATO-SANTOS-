@@ -204,7 +204,8 @@ v_db_url() {
 }
 
 v_anthropic() {
-  case "$1" in sk-ant-*) ;; *) echo "A chave da Anthropic começa com 'sk-ant-'. Pegue em console.anthropic.com > API Keys."; return 1;; esac
+  [ -z "$1" ] && return 0   # opcional: quem usa OpenAI não tem chave da Anthropic
+  case "$1" in sk-ant-*) ;; *) echo "A chave da Anthropic começa com 'sk-ant-'. Pegue em console.anthropic.com > API Keys (ou deixe em branco)."; return 1;; esac
   local code
   code="$(curl -s -o /dev/null -w '%{http_code}' -m 20 https://api.anthropic.com/v1/models \
     -H "x-api-key: $1" -H "anthropic-version: 2023-06-01" 2>/dev/null || echo 000)"
@@ -450,8 +451,8 @@ FIELDS=(
   "NEXT_PUBLIC_SUPABASE_ANON_KEY|Supabase anon key (Settings > API)||v_anon||"
   "SUPABASE_SERVICE_ROLE_KEY|Supabase service_role key (Settings > API)||v_service|secret|"
   "SUPABASE_DB_URL|Supabase connection string — Session pooler, modo URI (Settings > Database)||v_db_url|secret|"
-  "ANTHROPIC_API_KEY|Chave da Anthropic — a IA que atende (console.anthropic.com)||v_anthropic|secret|"
-  "OPENAI_API_KEY|Chave da OpenAI — ouvir áudios do WhatsApp e usar a base de conhecimento (Enter pula)||v_openai|secret|opcional"
+  "ANTHROPIC_API_KEY|Chave da Anthropic — a IA que atende (console.anthropic.com; Enter pula se você usa OpenAI)||v_anthropic|secret|opcional"
+  "OPENAI_API_KEY|Chave da OpenAI — a IA que atende, ouvir áudios do WhatsApp e base de conhecimento (Enter pula se você usa Anthropic)||v_openai|secret|opcional"
   "OWNER_EMAIL|E-mail do primeiro admin (dono)||v_email||"
   "OWNER_PASSWORD|Senha do primeiro admin (mínimo 8 caracteres)||v_password|secret|"
   "APP_NAME|Nome que aparece na interface (Enter para o padrão)|DeskcommCRM|||"
@@ -461,7 +462,8 @@ field_at() { IFS='|' read -r F_VAR F_PROMPT F_DEF F_VAL F_SEC F_OPT <<< "${FIELD
 
 if [ "$NONINTERACTIVE" = 0 ]; then
   c_dim "Dica: em qualquer pergunta, digite 'voltar' para refazer a anterior."
-  c_ylw "A chave da OpenAI é opcional, mas sem ela a IA não ouve áudio nem consulta a base de conhecimento."
+  c_ylw "Chaves de IA: você precisa de UMA — Anthropic OU OpenAI. Pule a que não tiver."
+  c_ylw "Só a OpenAI transcreve áudio do WhatsApp e alimenta a base de conhecimento; ter as duas cobre tudo."
 fi
 
 i=0
@@ -474,6 +476,27 @@ while [ "$i" -lt "${#FIELDS[@]}" ]; do
   else
     i=$((i+1))
   fi
+done
+
+# ── Pelo menos UMA chave de IA ──────────────────────────────────────────────
+# Cada uma é opcional sozinha (quem atende com OpenAI não tem chave da Anthropic,
+# e vice-versa), mas as duas vazias deixam o CRM sem IA nenhuma: o agente não
+# responde e o worker de sentimento pula todo evento. Então exigimos UMA sem
+# impor qual — antes daqui a Anthropic era obrigatória e não havia instalação
+# possível só com OpenAI.
+#
+# Deixar VAZIA a que a pessoa não tem é o caminho certo, e não um detalhe: uma
+# chave inventada faz o CRM se declarar "com IA configurada" e falhar em loop a
+# cada mensagem, em vez de pular limpo com motivo claro.
+while [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${OPENAI_API_KEY:-}" ]; do
+  if [ "$NONINTERACTIVE" = 1 ]; then
+    die "Falta chave de IA: preencha ANTHROPIC_API_KEY ou OPENAI_API_KEY no .env (uma das duas basta)."
+  fi
+  c_ylw "Você pulou as duas chaves de IA. Preciso de pelo menos uma — sem nenhuma, o CRM sobe mas a IA não atende."
+  set +e
+  ask_one ANTHROPIC_API_KEY "Chave da Anthropic (Enter pula se você usa OpenAI)" "" v_anthropic secret opcional
+  [ -z "${ANTHROPIC_API_KEY:-}" ] && ask_one OPENAI_API_KEY "Chave da OpenAI (Enter pula se você usa Anthropic)" "" v_openai secret opcional
+  set -e
 done
 
 # ── Conferência: a última chance de corrigir sem desfazer nada ──────────────

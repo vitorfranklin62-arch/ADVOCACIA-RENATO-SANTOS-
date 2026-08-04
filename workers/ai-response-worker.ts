@@ -17,7 +17,7 @@
 import { generateText, type LanguageModel } from "ai";
 
 import {
-  DEFAULT_BOT_MODEL,
+  defaultBotModel,
   gatewayConfig,
   gatewayHeaders,
   isAiGatewayConfigured,
@@ -397,7 +397,7 @@ async function buildContext(input: BuildContextInput): Promise<GuardDecision> {
       recent_messages,
       agent: {
         id: agent.id,
-        model: agent.model || DEFAULT_BOT_MODEL,
+        model: agent.model || defaultBotModel(),
         system_prompt: agent.system_prompt,
         config: (agent.config as Record<string, unknown>) ?? {},
         guardrails: (agent.guardrails as Record<string, unknown>) ?? {},

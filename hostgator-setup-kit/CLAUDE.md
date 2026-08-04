@@ -23,7 +23,13 @@ ao fim**, falando em português simples, resolvendo os problemas você mesmo, se
 - Um **domínio** (ex: `crm.empresadela.com.br`) para o CRM.
 - Uma conta grátis no **Supabase** (o banco de dados). Você vai guiá-la a criar em
   supabase.com e copiar 3 chaves + a "connection string".
-- Uma chave da **Anthropic** (a IA) — de console.anthropic.com.
+- Uma chave de IA: **Anthropic** (console.anthropic.com) **ou** **OpenAI**
+  (platform.openai.com). Uma das duas basta para instalar — pergunte qual ela tem, não
+  presuma a Anthropic. Só a da OpenAI transcreve áudio do WhatsApp e alimenta a base de
+  conhecimento, então se ela tiver as duas, colete as duas.
+  ⚠️ **Nunca invente uma chave** para "passar" do campo que ela não tem: deixe VAZIO. Chave
+  falsa faz o CRM se declarar com IA configurada e falhar em loop a cada mensagem, em vez
+  de pular limpo com motivo claro.
 - O **e-mail e a senha** que ela quer usar para entrar no CRM (o primeiro admin).
 
 ## Passo a passo que você conduz
