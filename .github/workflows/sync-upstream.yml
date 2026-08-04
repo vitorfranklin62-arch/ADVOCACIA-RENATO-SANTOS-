@@ -1,0 +1,130 @@
+# Puxa sozinho as atualizações publicadas pelo autor do DeskcommCRM.
+#
+# Roda toda madrugada. O que acontece:
+#   - nada novo lá em cima         -> não faz nada
+#   - merge limpo E projeto compila -> commita direto na main, sem incomodar ninguém
+#   - conflito OU merge quebrou algo -> NÃO mexe na main; abre um Pull Request
+#                                       pra você resolver com calma pelo site
+#
+# Ou seja: a main nunca recebe nada que não tenha passado por typecheck + lint.
+# Nada seu é sobrescrito — merge preserva os dois lados.
+#
+# Para rodar na hora, sem esperar a madrugada:
+#   aba "Actions" -> "sync-upstream" -> botão "Run workflow"
+
+name: sync-upstream
+
+on:
+  schedule:
+    # 06:00 UTC = 03:00 no horário de Brasília
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_URL: https://github.com/melgarafael/DeskcommCRM.git
+  UPSTREAM_BRANCH: main
+  SYNC_BRANCH: sync/upstream
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Ver se o autor publicou algo novo
+        id: fetch
+        run: |
+          git remote add upstream "$UPSTREAM_URL"
+          git fetch upstream "$UPSTREAM_BRANCH"
+          if git merge-base --is-ancestor "upstream/$UPSTREAM_BRANCH" HEAD; then
+            echo 'Nada novo no upstream — a main já está em dia.'
+            echo 'novidade=false' >> "$GITHUB_OUTPUT"
+          else
+            git log --oneline HEAD.."upstream/$UPSTREAM_BRANCH" | head -30
+            echo 'novidade=true' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Tentar o merge
+        id: merge
+        if: steps.fetch.outputs.novidade == 'true'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if git merge --no-edit "upstream/$UPSTREAM_BRANCH"; then
+            echo 'limpo=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'Conflito: o autor mexeu num trecho que você também mexeu.'
+            git merge --abort
+            echo 'limpo=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: pnpm/action-setup@v6
+        if: steps.merge.outputs.limpo == 'true'
+
+      - uses: actions/setup-node@v7
+        if: steps.merge.outputs.limpo == 'true'
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # O push abaixo usa o GITHUB_TOKEN, e push com esse token NÃO dispara o
+      # ci.yml. Sem esta etapa, um merge limpo mas quebrado entraria na main sem
+      # ninguém perceber — então a verificação tem que acontecer aqui dentro.
+      - name: Conferir que o merge não quebrou o projeto
+        id: verify
+        if: steps.merge.outputs.limpo == 'true'
+        continue-on-error: true
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm typecheck
+          pnpm lint
+
+      - name: Publicar na main
+        if: steps.merge.outputs.limpo == 'true' && steps.verify.outcome == 'success'
+        run: git push origin HEAD:main
+
+      - name: Precisa da sua mão — abrir Pull Request
+        if: steps.merge.outputs.limpo == 'false' || steps.verify.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ '${{ steps.merge.outputs.limpo }}' = 'false' ]; then
+            motivo='O merge automático deu **conflito** — o autor mexeu num trecho que você também alterou.'
+          else
+            motivo='O merge saiu limpo, mas depois dele o `typecheck` ou o `lint` **falhou**. A `main` foi deixada intacta de propósito.'
+          fi
+
+          git push --force origin "upstream/$UPSTREAM_BRANCH:refs/heads/$SYNC_BRANCH"
+
+          abertos=$(gh pr list --head "$SYNC_BRANCH" --state open --json number --jq 'length')
+          if [ "$abertos" != '0' ]; then
+            echo 'Já existe um PR de sync aberto; ele foi atualizado com os commits novos.'
+            exit 0
+          fi
+
+          gh pr create --base main --head "$SYNC_BRANCH" \
+            --title 'sync: atualizações do DeskcommCRM (upstream)' \
+            --body "$(printf '%s\n\n%s\n\n%s\n' \
+              "$motivo" \
+              'Revise as mudanças e clique em **Merge**. Se o GitHub avisar que há conflitos, use o botão **Resolve conflicts** para escolher, linha a linha, o que fica: a versão do autor ou a sua.' \
+              'PR aberto automaticamente pelo workflow `sync-upstream`.')" \
+          || {
+            echo '---'
+            echo 'Não consegui abrir o PR. Provável causa: a permissão de Actions criarem PR está desligada.'
+            echo 'Ligue em: Settings -> Actions -> General -> Workflow permissions'
+            echo '          -> marque "Allow GitHub Actions to create and approve pull requests".'
+            echo "A branch $SYNC_BRANCH já foi enviada, então dá pra abrir o PR na mão também."
+            exit 1
+          }
