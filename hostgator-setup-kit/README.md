@@ -2,6 +2,16 @@
 
 Este kit sobe o **DeskcommCRM** no seu servidor VPS da HostGator. Você tem dois caminhos:
 
+> **Ainda nem tem servidor?** Comece por `comecar.sh` — ele roda **no seu computador**, antes
+> de existir VPS, e responde a pergunta que trava todo mundo no início: *o que eu preciso
+> contratar?* Ele nomeia o plano (VPS Turing, 2 vCPU / 4 GB — o Cartesius não dá conta do
+> WhatsApp), abre a página se você quiser, e devolve o comando exato do seu caso. Depois que
+> a VPS existir, o caminho é o `install.sh` daqui de baixo.
+>
+> ```bash
+> bash comecar.sh
+> ```
+
 > **Outra hospedagem?** O kit é feito para a HostGator (é a parceria do projeto e o caminho
 > testado de ponta a ponta), mas roda em qualquer VPS com Docker. Se a sua já vem com um
 > **proxy reverso próprio** ocupando as portas 80/443 — caso de Hostinger, Coolify, Dokploy
