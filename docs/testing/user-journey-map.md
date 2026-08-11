@@ -129,6 +129,45 @@ Andar por TODAS as rotas navegáveis logado como admin e como agent: settings, c
 LGPD anonymize, /admin (platform), error pages (403/503/not-found), estados vazios.
 Critério: nenhuma tela quebra, nenhum stack trace, nenhum texto de erro cru.
 
+## J8 — Agenda de compromissos `[P1]`
+
+Feature nova (migration 0100, `appointments`): calendário COMPARTILHADO da equipe
+(reuniões, ligações, audiências, visitas), com vínculo opcional a um contato e a um
+negócio do funil (`crm_lead_links`, `target_kind='appointment'` — reservado desde a
+spec 02 e nunca antes usado). Sem lembrete automático nesta versão (decisão de escopo).
+
+| # | Caso | Expectativa |
+|---|------|-------------|
+| J8.1 | Abrir `/app/agenda` pela navegação (grupo Atendimento) | grade da semana atual, dia de hoje destacado |
+| J8.2 | Criar compromisso pelo botão "Novo compromisso" | aparece no dia/hora certos, toast de sucesso |
+| J8.3 | Criar compromisso clicando no "+" de um dia específico | dialog abre com aquele dia pré-preenchido (09h–10h) |
+| J8.4 | Tipo "Outro" com rótulo livre | grava o texto digitado, não a palavra "outro" |
+| J8.5 | Vincular um contato (busca por nome/telefone) | compromisso mostra o contato; remover vínculo funciona |
+| J8.6 | Marcar "Dia inteiro" | esconde os campos de hora, compromisso cobre o dia |
+| J8.7 | Editar um compromisso existente | pré-preenche todos os campos, inclusive tipo customizado |
+| J8.8 | Marcar como "Concluído" um compromisso vinculado a um negócio | timeline do negócio (Customer 360) ganha a atividade `appointment_completed` |
+| J8.9 | Compromisso `scheduled` cujo horário já passou | badge "Atrasado" na grade (mecanismo anti-morte — não é decoração, é o dado ficando visível até alguém decidir) |
+| J8.10 | Excluir compromisso | some da grade, confirmação via alert dialog |
+| J8.11 | Filtrar por responsável | grade mostra só os compromissos da pessoa escolhida |
+| J8.12 | Navegar semana anterior/seguinte/"Hoje" | grade atualiza, mantém o filtro de responsável |
+| J8.13 | Agent tenta acessar `/app/agenda` (role mínimo) | vê a agenda (viewer+ lê, agent+ escreve) — agenda é compartilhada, não há tela "vazia" por role |
+| J8.14 | Dois tenants diferentes | organização B nunca vê compromisso da organização A (RLS) |
+
+**Estado desta sessão (2026-08-11): especificado e NÃO executado por Playwright.**
+O sandbox desta sessão bloqueia acesso ao Docker Hub por política de rede
+(`production.cloudfront.docker.com` responde 403 no CONNECT do proxy) — o mesmo
+bloqueio derruba `pnpm test:db` (precisa de `pgvector/pgvector:pg17`) e `supabase
+start` (stack local inteira via Docker Compose), então não havia como subir Auth +
+PostgREST reais pra dirigir o browser contra o app autenticado, como a doutrina de
+QA Visual exige. Substituído nesta sessão por: `pnpm build` limpo (rotas `/app/agenda`,
+`/api/v1/agenda` e `/api/v1/agenda/[id]` compilando), suíte `pnpm test:unit` inteira
+verde (1920 testes, incluindo os 16 novos de `lib/schemas/appointments.test.ts`), e
+verificação MANUAL do schema/RLS num Postgres 16 local (sem Docker) — isolamento nas
+duas direções, `with check`, os dois CHECKs e idempotência do apêndice do baseline,
+tudo confirmado por SQL direto. O `pnpm test:db` real (pg17 via Docker) e os J8.1–J8.14
+acima ficam para quem tiver acesso ao Docker — CI (`invariants`/`e2e`) roda em ambiente
+sem essa restrição e é o próximo gate real.
+
 ---
 
 ## Achados do mapeamento (pré-execução) — candidatos a correção

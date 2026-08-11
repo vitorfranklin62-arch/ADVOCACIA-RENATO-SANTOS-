@@ -8,6 +8,13 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+### Adicionado
+
+- **Agenda de compromissos.** Calendário compartilhado da equipe (`/app/agenda`, semana) para
+  reuniões, ligações, audiências, visitas e prazos — com filtro por responsável, vínculo opcional a
+  um contato e a um negócio do funil (a atividade aparece na timeline do negócio quando o
+  compromisso é concluído ou cancelado). Sem lembrete automático nesta versão.
+
 ## [1.1.0] — 2026-07-30
 
 ### Adicionado

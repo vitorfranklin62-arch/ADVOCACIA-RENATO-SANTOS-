@@ -1404,6 +1404,75 @@ export type Database = {
           },
         ]
       }
+      appointments: {
+        Row: {
+          all_day: boolean
+          contact_id: string | null
+          created_at: string
+          created_by_user_id: string | null
+          description: string | null
+          ends_at: string
+          id: string
+          location: string | null
+          organization_id: string
+          owner_user_id: string | null
+          starts_at: string
+          status: string
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          all_day?: boolean
+          contact_id?: string | null
+          created_at?: string
+          created_by_user_id?: string | null
+          description?: string | null
+          ends_at: string
+          id?: string
+          location?: string | null
+          organization_id: string
+          owner_user_id?: string | null
+          starts_at: string
+          status?: string
+          title: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          all_day?: boolean
+          contact_id?: string | null
+          created_at?: string
+          created_by_user_id?: string | null
+          description?: string | null
+          ends_at?: string
+          id?: string
+          location?: string | null
+          organization_id?: string
+          owner_user_id?: string | null
+          starts_at?: string
+          status?: string
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendant_availability: {
         Row: {
           capacity: number

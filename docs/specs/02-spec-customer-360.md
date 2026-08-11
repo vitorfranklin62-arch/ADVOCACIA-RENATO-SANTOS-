@@ -491,6 +491,13 @@ revoke update, delete on public.crm_lead_activities from authenticated, anon;
 
 Vínculos entre lead e qualquer recurso externo (`orders`, `conversations`, `messages`, `appointments`, etc.).
 
+> `target_kind = 'appointment'` estava reservado aqui desde a versão original desta spec, mas sem
+> tabela por trás. Migration 0100 implementa `public.appointments` (agenda de compromissos
+> compartilhada da equipe) seguindo o mesmo padrão de `orders`/`conversations`: tabela de primeira
+> classe, com `contact_id` direto, e o vínculo a um lead passando por `crm_lead_links` — nunca uma
+> FK `lead_id` direta na tabela nova. Ver `supabase/migrations/MANIFEST.md` (0100) para o raciocínio
+> completo.
+
 ```sql
 create table public.crm_lead_links (
   id                uuid primary key default gen_random_uuid(),
