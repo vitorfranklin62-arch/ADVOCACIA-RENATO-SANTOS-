@@ -182,7 +182,24 @@ outputSchema: z.object({
 })
 ```
 
-### 3.2 Write tools (mutations, role >= manager)
+#### `crm_list_appointments` (migration 0100 — agenda)
+**Maps to**: `GET /api/v1/agenda?from=...&to=...`
+
+```ts
+inputSchema: z.object({
+  from: z.string().datetime(),
+  to: z.string().datetime(),
+  owner_user_id: z.string().uuid().optional()
+})
+```
+
+Agenda COMPARTILHADA da equipe (RLS é só isolamento por org, sem recorte por `owner_user_id`).
+`requiresRole: "agent"` — diferente de `crm_create_lead`/`crm_move_lead_stage` (role `manager`), porque
+esta tool precisa ser invocável pelo agente NO PRÓPRIO TURNO do WhatsApp (o token efêmero do motor tem
+`role` fixo em `agent`, ver `lib/agent-engine/edge/crm/mcp-tools.ts`). É a resposta ao "regra de ouro:
+nunca invente disponibilidade" da skill situacional `agendamento` (`supabase/migrations/0069`).
+
+### 3.2 Write tools (mutations, role >= manager, salvo indicado)
 
 #### `crm_send_whatsapp_message`
 **Maps to**: `POST /api/v1/messages` (envio outbound) — handler já existente
@@ -244,6 +261,47 @@ inputSchema: z.object({
 
 Audit log entry com `change.from_stage_id`, `change.to_stage_id`, `reason`.
 
+#### `crm_create_appointment` (migration 0100 — agenda, role `agent`)
+**Maps to**: `POST /api/v1/agenda`
+
+```ts
+inputSchema: z.object({
+  title: z.string().min(1).max(160),
+  starts_at: z.string().datetime(),
+  ends_at: z.string().datetime(),
+  description: z.string().max(4000).optional(),
+  location: z.string().max(200).optional(),
+  type: z.string().max(40).optional(),        // vocabulário aberto: reuniao/audiencia/prazo/...
+  all_day: z.boolean().optional(),
+  contact_id: z.string().uuid().optional(),
+  owner_user_id: z.string().uuid().optional(),
+  lead_id: z.string().uuid().optional()       // vira crm_lead_links, não coluna de appointments
+})
+```
+
+`requiresRole: "agent"` (não `manager`) — é a tool que fecha o loop do playbook de agendamento: o
+agente confirma o horário por escrito com o lead e SÓ ENTÃO chama esta tool. Quando `lead_id` é
+informado, emite `crm_lead_activities` tipo `appointment_scheduled` na timeline do negócio.
+
+#### `crm_update_appointment` (migration 0100 — agenda, role `agent`)
+**Maps to**: `PATCH /api/v1/agenda/:id`
+
+```ts
+inputSchema: z.object({
+  appointment_id: z.string().uuid(),
+  starts_at: z.string().datetime().optional(),   // reagendar
+  ends_at: z.string().datetime().optional(),
+  status: z.enum(['scheduled', 'completed', 'cancelled', 'no_show']).optional(),
+  lead_id: z.string().uuid().nullable().optional(),
+  // + demais campos de crm_create_appointment, todos opcionais
+})
+```
+
+Cobre reagendar (novo `starts_at`/`ends_at` no MESMO compromisso — não crie um segundo e deixe os dois
+marcados), cancelar/concluir (`status`) e trocar o vínculo com o negócio (`lead_id`). `status` virando
+`completed`/`cancelled` num compromisso linkado emite a atividade correspondente na timeline — só numa
+TRANSIÇÃO real, nunca ao reenviar o mesmo status.
+
 ### 3.3 Tool especial (sem espelho REST)
 
 #### `crm_request_human_handoff`
@@ -281,10 +339,13 @@ A versão do agente armazena `tool_ids text[]` (Spec 10 §3.2). Validação no p
 const VALID_TOOL_IDS = [
   'crm_search_contacts', 'crm_get_contact',
   'crm_list_conversations', 'crm_get_conversation', 'crm_get_conversation_history',
-  'crm_list_leads', 'crm_get_lead', 'crm_list_pipelines',
+  'crm_list_leads', 'crm_get_lead', 'crm_list_pipelines', 'crm_list_appointments',
   'crm_send_whatsapp_message', 'crm_create_lead', 'crm_update_lead', 'crm_move_lead_stage',
+  'crm_create_appointment', 'crm_update_appointment',
   'crm_request_human_handoff'
 ]
+// Lista real e completa (incl. governança) fica em lib/mcp/tools/catalog.ts — este
+// bloco é ilustrativo, não copiado 1:1 pelo código.
 
 validateToolIds(version.tool_ids).forEach(t => {
   if (!VALID_TOOL_IDS.includes(t)) throw new ValidationError(`Unknown tool: ${t}`)
