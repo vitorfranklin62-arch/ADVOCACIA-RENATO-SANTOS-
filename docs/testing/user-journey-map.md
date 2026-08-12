@@ -139,6 +139,8 @@ spec 02 e nunca antes usado). Sem lembrete automático nesta versão (decisão d
 | # | Caso | Expectativa |
 |---|------|-------------|
 | J8.1 | Abrir `/app/agenda` pela navegação (grupo Atendimento) | grade da semana atual, dia de hoje destacado |
+| J8.1b | Alternar entre as abas Dia/Semana/Mês | grade recalcula o intervalo certo; "Hoje" some/volta a fazer sentido em cada modo; filtro de responsável se mantém ao trocar de aba |
+| J8.1c | Visão Mês com dias de semanas adjacentes (fora do mês) | dias fora do mês selecionado aparecem esmaecidos mas com os compromissos reais, clicáveis |
 | J8.2 | Criar compromisso pelo botão "Novo compromisso" | aparece no dia/hora certos, toast de sucesso |
 | J8.3 | Criar compromisso clicando no "+" de um dia específico | dialog abre com aquele dia pré-preenchido (09h–10h) |
 | J8.4 | Tipo "Outro" com rótulo livre | grava o texto digitado, não a palavra "outro" |
