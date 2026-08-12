@@ -5,6 +5,11 @@
  *  Wave 4 (S-13.04): +3 read (leads list/get, pipelines list)
  *                    +4 write (create_lead, update_lead, move_lead_stage, send_whatsapp)
  *                    +1 handoff (request_human_handoff). Total 13 tools.
+ *  Governança (G6-01): +3 write agent-level (assign_conversation, manage_tags,
+ *                    get_queue_status — read na prática, ver categoria).
+ *  Agenda (migration 0100): +1 read (list_appointments) +2 write agent-level
+ *                    (create/update_appointment) — dão à Skill "agendamento" o
+ *                    acesso real à disponibilidade que o playbook já exigia.
  */
 import type { McpToolDefinition } from "../types";
 import { TOOL_CATALOG, VALID_TOOL_IDS } from "./catalog";
@@ -22,6 +27,7 @@ import {
   crmMoveLeadStage,
 } from "./leads";
 import { crmListPipelines } from "./pipelines";
+import { crmListAppointments, crmCreateAppointment, crmUpdateAppointment } from "./appointments";
 import { crmSendWhatsappMessage } from "./messages";
 import {
   crmAssignConversation,
@@ -46,6 +52,7 @@ export const allTools: ReadonlyArray<McpToolDefinition> = [
   crmListLeads,
   crmGetLead,
   crmListPipelines,
+  crmListAppointments,
   // write
   crmCreateLead,
   crmUpdateLead,
@@ -53,6 +60,8 @@ export const allTools: ReadonlyArray<McpToolDefinition> = [
   crmSendWhatsappMessage,
   crmAssignConversation,
   crmManageTags,
+  crmCreateAppointment,
+  crmUpdateAppointment,
   // handoff (special)
   crmRequestHumanHandoff,
 ] as unknown as ReadonlyArray<McpToolDefinition>;

@@ -110,4 +110,6 @@ export {
   Key,
   UserCircle,
   ClockCounterClockwise,
+  // agenda
+  Calendar,
 } from "@phosphor-icons/react/dist/ssr";

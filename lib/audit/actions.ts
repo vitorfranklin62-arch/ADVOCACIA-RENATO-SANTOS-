@@ -192,4 +192,8 @@ export type AuditAction =
   // vira `pipeline.archived` e a linha continua no banco.
   | "pipeline.deleted"
   | "system.update_requested"
-  | "system.update_finished";
+  | "system.update_finished"
+  | "appointment.created"
+  | "appointment.updated"
+  | "appointment.status_changed"
+  | "appointment.deleted";

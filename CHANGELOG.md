@@ -8,6 +8,19 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+### Adicionado
+
+- **Agenda de compromissos.** Calendário compartilhado da equipe (`/app/agenda`, com visão dia,
+  semana ou mês) para reuniões, ligações, audiências, visitas e prazos — com filtro por
+  responsável, vínculo opcional a um contato e a um negócio do funil (a atividade aparece na
+  timeline do negócio quando o compromisso é concluído ou cancelado). Sem lembrete automático
+  nesta versão.
+- **O agente de IA passa a ter acesso real à agenda.** Três tools novas no catálogo MCP
+  (`crm_list_appointments`, `crm_create_appointment`, `crm_update_appointment`), habilitáveis por
+  agente na tela de Agentes — a Skill "agendamento" já pedia isso ("regra de ouro: nunca invente
+  disponibilidade"). Agora, com a tool ligada, o agente confere a agenda real antes de oferecer
+  horário e marca de verdade depois da confirmação por escrito.
+
 ## [1.1.0] — 2026-07-30
 
 ### Adicionado

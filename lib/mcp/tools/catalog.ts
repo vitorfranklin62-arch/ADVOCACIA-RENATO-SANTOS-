@@ -27,6 +27,7 @@ export const TOOL_CATALOG: ReadonlyArray<McpToolCatalogEntry> = [
   { name: "crm_list_leads", category: "read", description: "Lista leads de um pipeline (com owner_user_name, stage, tags)" },
   { name: "crm_get_lead", category: "read", description: "Detalhe de lead (com owner_user_name, stage, tags)" },
   { name: "crm_list_pipelines", category: "read", description: "Lista pipelines da org" },
+  { name: "crm_list_appointments", category: "read", description: "Lista compromissos da agenda num intervalo de datas" },
   // write
   { name: "crm_create_lead", category: "write", description: "Cria um lead" },
   { name: "crm_update_lead", category: "write", description: "Atualiza campos de um lead" },
@@ -34,6 +35,8 @@ export const TOOL_CATALOG: ReadonlyArray<McpToolCatalogEntry> = [
   { name: "crm_send_whatsapp_message", category: "write", description: "Envia mensagem WhatsApp" },
   { name: "crm_assign_conversation", category: "write", description: "Atribui/transfere/libera uma conversa" },
   { name: "crm_manage_tags", category: "write", description: "Adiciona/remove tags em conversation/contact/lead" },
+  { name: "crm_create_appointment", category: "write", description: "Cria um compromisso na agenda da equipe" },
+  { name: "crm_update_appointment", category: "write", description: "Reagenda, cancela ou conclui um compromisso" },
   // handoff
   { name: "crm_request_human_handoff", category: "handoff", description: "Solicita handoff para atendente humano" },
 ] as const;
