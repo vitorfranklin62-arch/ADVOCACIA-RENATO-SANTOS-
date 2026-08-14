@@ -8772,4 +8772,127 @@ create index if not exists idx_contacts_avatar_refresh
   on public.contacts (avatar_updated_at nulls first)
   where wa_identity is not null and is_anonymized = false;
 
+
+-- ---- agenda do escritório (migration 0100) ----
+-- O dump --schema-only não traz mudanças pós-snapshot: sem este bloco, quem
+-- instala pelo install.sh e quem atualiza pelo update.sh ficam SEM a agenda —
+-- as telas existiriam e todo INSERT falharia com "relation does not exist".
+--
+-- Idempotente e auto-curativo: `if not exists` em tudo, DO block nas duas
+-- coisas que não aceitam a cláusula (policy e constraint). Re-aplicar é no-op.
+--
+-- A regra de negócio que mora no banco: dois compromissos ATIVOS não podem
+-- ocupar o mesmo intervalo na mesma organização. Está numa exclusion constraint
+-- e não no código porque a IA marca sozinha em várias conversas ao mesmo tempo
+-- — check-then-act na aplicação deixaria os dois passarem. Ver a migration
+-- 20260808120000_0100_crm_appointments.sql para o detalhe.
+
+create extension if not exists btree_gist with schema public;
+
+create table if not exists public.crm_appointments (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  contact_id uuid references public.contacts(id) on delete set null,
+  lead_id uuid references public.crm_leads(id) on delete set null,
+  title text not null,
+  notes text,
+  kind text not null default 'consulta',
+  location_kind text not null default 'presencial',
+  location_detail text,
+  starts_at timestamptz not null,
+  ends_at timestamptz not null,
+  status text not null default 'scheduled',
+  created_by uuid references auth.users(id) on delete set null,
+  created_by_ai boolean not null default false,
+  cancelled_at timestamptz,
+  cancel_reason text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint crm_appointments_periodo_valido check (ends_at > starts_at),
+  constraint crm_appointments_status_check
+    check (status in ('scheduled', 'completed', 'cancelled', 'no_show')),
+  constraint crm_appointments_kind_check
+    check (kind in ('consulta', 'retorno', 'audiencia', 'prazo', 'reuniao', 'outro')),
+  constraint crm_appointments_location_kind_check
+    check (location_kind in ('presencial', 'online', 'telefone'))
+);
+
+alter table public.crm_appointments add column if not exists contact_id uuid;
+alter table public.crm_appointments add column if not exists lead_id uuid;
+alter table public.crm_appointments add column if not exists notes text;
+alter table public.crm_appointments add column if not exists location_detail text;
+alter table public.crm_appointments add column if not exists created_by_ai boolean not null default false;
+alter table public.crm_appointments add column if not exists cancelled_at timestamptz;
+alter table public.crm_appointments add column if not exists cancel_reason text;
+
+create index if not exists crm_appointments_org_starts_idx
+  on public.crm_appointments (organization_id, starts_at);
+
+create index if not exists crm_appointments_org_contact_idx
+  on public.crm_appointments (organization_id, contact_id)
+  where contact_id is not null;
+
+-- AUTO-CURATIVO: num clone que já tenha linhas sobrepostas (marcadas antes da
+-- constraint existir), criar a exclusion falharia e derrubaria o update.sh
+-- inteiro. Cancelamos as duplicatas ANTES — mantendo a mais antiga de cada
+-- sobreposição, que é a que o cliente ouviu primeiro.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'crm_appointments_sem_sobreposicao'
+  ) then
+    update public.crm_appointments a
+       set status = 'cancelled',
+           cancelled_at = coalesce(a.cancelled_at, now()),
+           cancel_reason = coalesce(a.cancel_reason, 'cancelado automaticamente: horário sobreposto (migration 0100)')
+     where a.status in ('scheduled', 'completed')
+       and exists (
+         select 1 from public.crm_appointments b
+          where b.organization_id = a.organization_id
+            and b.id <> a.id
+            and b.status in ('scheduled', 'completed')
+            and tstzrange(b.starts_at, b.ends_at) && tstzrange(a.starts_at, a.ends_at)
+            and (b.created_at, b.id) < (a.created_at, a.id)
+       );
+
+    alter table public.crm_appointments
+      add constraint crm_appointments_sem_sobreposicao
+      exclude using gist (
+        organization_id with =,
+        tstzrange(starts_at, ends_at) with &&
+      ) where (status in ('scheduled', 'completed'));
+  end if;
+end $$;
+
+drop trigger if exists set_updated_at on public.crm_appointments;
+create trigger set_updated_at
+  before update on public.crm_appointments
+  for each row execute function public.fn_set_updated_at();
+
+alter table public.crm_appointments enable row level security;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'crm_appointments'
+      and policyname = 'tenant_isolation_crm_appointments_all'
+  ) then
+    create policy "tenant_isolation_crm_appointments_all" on public.crm_appointments
+      using (
+        (organization_id in (select public.fn_user_org_ids()))
+        or public.fn_is_platform_admin()
+      )
+      with check (
+        (organization_id in (select public.fn_user_org_ids()))
+        or public.fn_is_platform_admin()
+      );
+  end if;
+end $$;
+
+grant all on table public.crm_appointments to "anon";
+grant all on table public.crm_appointments to "authenticated";
+grant all on table public.crm_appointments to "service_role";
+
 notify pgrst, 'reload schema';

@@ -116,6 +116,31 @@ const PARES: Array<{
     arquivo: "lib/system/update-run.ts",
     simbolo: "RunStep",
   },
+  {
+    tabela: "crm_appointments",
+    coluna: "status",
+    // lib/agenda/vocabulary.ts → AppointmentStatus.
+    //
+    // O par nasce no MESMO commit da migration 0100, como manda a lição dos
+    // quatro pares que divergiram por terem nascido sozinhos. O caminho pouco
+    // exercitado aqui é `cancelled` pela IA: ninguém desmarca no dia do deploy.
+    arquivo: "lib/agenda/vocabulary.ts",
+    simbolo: "AppointmentStatus",
+  },
+  {
+    tabela: "crm_appointments",
+    coluna: "kind",
+    // lib/agenda/vocabulary.ts → AppointmentKind.
+    arquivo: "lib/agenda/vocabulary.ts",
+    simbolo: "AppointmentKind",
+  },
+  {
+    tabela: "crm_appointments",
+    coluna: "location_kind",
+    // lib/agenda/vocabulary.ts → AppointmentLocationKind.
+    arquivo: "lib/agenda/vocabulary.ts",
+    simbolo: "AppointmentLocationKind",
+  },
 ];
 
 /** Tira um nível de parênteses externos, se ele envolver a expressão inteira. */
